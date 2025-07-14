@@ -12,7 +12,7 @@ from torchvision.transforms import Compose, Normalize, ToTensor
 
 
 class Net(nn.Module):
-    """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz')"""
+    """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz'): TODO: check if this works for MNIST"""
 
     def __init__(self):
         super(Net, self).__init__()
@@ -46,7 +46,7 @@ fds = None  # Cache FederatedDataset
 
 
 def load_data(partition_id: int, num_partitions: int, batch_size: int):
-    """Load partition CIFAR10 data."""
+    """Load partition CIFAR10 data. TODO: check if this works for MNIST"""
     # Only initialize `FederatedDataset` once
     global fds
     if fds is None:
@@ -76,7 +76,7 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
 
 
 def train(net, trainloader, valloader, epochs, learning_rate, device):
-    """Train the model on the training set."""
+    """Train the model on the training set. TODO: check if this works for MNIST"""
     net.to(device)  # move model to GPU if available
     criterion = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9)
@@ -99,7 +99,7 @@ def train(net, trainloader, valloader, epochs, learning_rate, device):
 
 
 def test(net, testloader, device):
-    """Validate the model on the test set."""
+    """Validate the model on the test set. TODO: check if this works for MNIST"""
     net.to(device)  # move model to GPU if available
     criterion = torch.nn.CrossEntropyLoss()
     correct, loss = 0, 0.0
