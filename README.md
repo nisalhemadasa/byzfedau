@@ -4,6 +4,7 @@
 
 ```bash
 pip install -e .
+poetry install
 ```
 
 ## Run with the Simulation Engine
