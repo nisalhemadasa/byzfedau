@@ -1,5 +1,6 @@
 import torch
 
+
 class BackdoorCrossStamp:
     def __init__(
         self,
