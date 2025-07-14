@@ -1,4 +1,4 @@
-"""pytorchexample: A Flower / PyTorch app."""
+"""byzAttack: A Flower / PyTorch app."""
 
 from collections import OrderedDict
 
@@ -9,6 +9,8 @@ from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import IidPartitioner
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor
+
+from src.attacks import flip_sign, add_gaussian_noise, flip_labels
 
 
 class Net(nn.Module):
@@ -32,20 +34,10 @@ class Net(nn.Module):
         return self.fc3(x)
 
 
-def get_weights(net):
-    return [val.cpu().numpy() for _, val in net.state_dict().items()]
-
-
-def set_weights(net, parameters):
-    params_dict = zip(net.state_dict().keys(), parameters)
-    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-    net.load_state_dict(state_dict, strict=True)
-
-
 fds = None  # Cache FederatedDataset
 
 
-def load_data(partition_id: int, num_partitions: int, batch_size: int):
+def load_data(partition_id: int, num_partitions: int):
     """Load partition CIFAR10 data."""
     # Only initialize `FederatedDataset` once
     global fds
@@ -68,39 +60,52 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int):
         return batch
 
     partition_train_test = partition_train_test.with_transform(apply_transforms)
-    trainloader = DataLoader(
-        partition_train_test["train"], batch_size=batch_size, shuffle=True
-    )
-    testloader = DataLoader(partition_train_test["test"], batch_size=batch_size)
+    trainloader = DataLoader(partition_train_test["train"], batch_size=32, shuffle=True)
+    testloader = DataLoader(partition_train_test["test"], batch_size=32)
     return trainloader, testloader
 
 
-def train(net, trainloader, valloader, epochs, learning_rate, device):
+def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
     criterion = torch.nn.CrossEntropyLoss().to(device)
-    optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9)
+    optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
     net.train()
+    running_loss = 0.0
     for _ in range(epochs):
         for batch in trainloader:
             images = batch["img"]
             labels = batch["label"]
+
+            if attack_activated and client_type == "Malicious":
+                match attack_info["byz-attack-type"]:
+                    case "Label Flip":
+                        try:
+                            labels = flip_labels(labels, 10)
+                        except KeyError:
+                            raise KeyError("'num_labels_flipped' must be specified in config file.")
+
             optimizer.zero_grad()
-            criterion(net(images.to(device)), labels.to(device)).backward()
+            loss = criterion(net(images.to(device)), labels.to(device))
+            loss.backward()
+
+            if attack_activated and client_type == "Malicious":
+                match attack_info["byz-attack-type"]:
+                    case "Sign Flip":
+                        flip_sign(net.parameters())
+                    case "Gaussian Noise":
+                        add_gaussian_noise(net.parameters(), attack_info["mu"], attack_info["variance"])
+
             optimizer.step()
+            running_loss += loss.item()
 
-    val_loss, val_acc = test(net, valloader, device)
-
-    results = {
-        "val_loss": val_loss,
-        "val_accuracy": val_acc,
-    }
-    return results
+    avg_trainloss = running_loss / len(trainloader)
+    return avg_trainloss
 
 
 def test(net, testloader, device):
     """Validate the model on the test set."""
-    net.to(device)  # move model to GPU if available
+    net.to(device)
     criterion = torch.nn.CrossEntropyLoss()
     correct, loss = 0, 0.0
     with torch.no_grad():
@@ -113,3 +118,13 @@ def test(net, testloader, device):
     accuracy = correct / len(testloader.dataset)
     loss = loss / len(testloader)
     return loss, accuracy
+
+
+def get_weights(net):
+    return [val.cpu().numpy() for _, val in net.state_dict().items()]
+
+
+def set_weights(net, parameters):
+    params_dict = zip(net.state_dict().keys(), parameters)
+    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+    net.load_state_dict(state_dict, strict=True)
