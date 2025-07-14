@@ -34,7 +34,6 @@ class BackdoorCrossStamp:
         xc = x0 + size // 2
         yc = y0 + size // 2
 
-        # Clamp limits
         x_start, x_end = max(x0, 0), min(x0 + size, self.w)
         y_start, y_end = max(y0, 0), min(y0 + size, self.h)
 
