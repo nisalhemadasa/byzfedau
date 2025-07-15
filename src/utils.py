@@ -57,25 +57,3 @@ class BackdoorCrossStamp:
         return torch.stack([
             self.stamp(img) for img in imgs
         ])
-        
-
-
-def evaluate_efficacy(
-    model: torch.nn.Module,
-    backdoor_dataloader: torch.utils.data.DataLoader ,
-) -> float:
-    """Evaluates the efficacy of a backdoor attack on the model.
-    Data should be a backdoored dataset. Labels should be the attacker target.
-    """
-    model.eval()
-    with torch.no_grad():
-        backdoor_right, backdoor_total = 0, 0
-        
-        for data, target in backdoor_dataloader:
-            output = model(data)
-            pred = output.argmax(dim=1, keepdim=True)
-            backdoor_right += pred.eq(target.view_as(pred)).sum().item()
-            backdoor_total += len(target)
-        
-    efficacy = backdoor_right / backdoor_total if backdoor_total > 0 else 0
-    return efficacy
