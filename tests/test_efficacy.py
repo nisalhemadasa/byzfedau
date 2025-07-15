@@ -33,3 +33,4 @@ def test_efficacy():
 
 if __name__ == "__main__":
     test_efficacy()
+    print("all test passed")
