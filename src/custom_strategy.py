@@ -41,7 +41,6 @@ class CustomFedAvg(FedAvg):
         for client_proxy, fit_res in results:
             tensor_list = [torch.from_numpy(param) for param in parameters_to_ndarrays(fit_res.parameters)]
             self.gradients.append(tensor_list)
-        print(f"Gradients: {len(self.gradients)}")
 
         if self.inplace:
             # Does in-place weighted average of results
