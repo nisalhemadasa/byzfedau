@@ -55,7 +55,7 @@ class BackdoorCrossStamp:
         If there is enough time should be vetorized.
         """
         return torch.stack([
-            self.stamp(img for img in imgs)
+            self.stamp(img) for img in imgs
         ])
         
 
