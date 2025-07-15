@@ -29,14 +29,14 @@ clientapp = "src.client_app:app"
 num-server-rounds = 10
 fraction-fit = 1
 local-epochs = 1
-byz-attack-type = "Backdoor" # ["Sign Flip", "Label Flip", "Gaussian Noise", "Backdoor"]
+strategy-name = "Custom-FedAvg"
+byz-attack-type = "BackDoor" # ["Sign Flip", "Label Flip", "Gaussian Noise", "BackDoor"]
 mu = 1.0 # Gaussian Noise mean value
 variance = 1.0 # Gaussian Noise variance value
 attack-activation-round = 5
 num-malicious = 4 # number of malicious users
 random-seed = 42
 dataset = "MNIST"
-
 [tool.flwr.federations]
 default = "local-simulation"
 
