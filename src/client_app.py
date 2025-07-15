@@ -50,7 +50,7 @@ def client_fn(context: Context):
     net = get_nn(dataset)
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
-    trainloader, valloader = load_data(partition_id, num_partitions)
+    trainloader, valloader = load_data(partition_id, num_partitions, dataset)
     local_epochs = context.run_config["local-epochs"]
 
     attack_info = {"byz-attack-type": context.run_config["byz-attack-type"]}
