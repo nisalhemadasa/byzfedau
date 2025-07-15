@@ -3,76 +3,61 @@
 from collections import OrderedDict
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import IidPartitioner
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor
 
-from src.attacks import flip_sign, add_gaussian_noise, flip_labels
-from src.utils import BackdoorCrossStamp
+from src.attacks import flip_sign, add_gaussian_noise, flip_labels, BackdoorCrossStamp
+from src.nn import MNISTNet, CifarNet
 
-class CifarNet(nn.Module):
-    """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz')"""
-
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
-
-    def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return self.fc3(x)
-
-class MNISTNet(nn.Module):
-    """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz')"""
-
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 6, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(256, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
-
-    def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return self.fc3(x)
-
+def get_nn(dataset: str = "MINST") -> torch.nn.Module:
+    if dataset == "MNIST":
+        return MNISTNet()
+    if dataset == "CIFAR10":
+        return CifarNet()
+    return None
 
 fds = None  # Cache FederatedDataset
 
 
-def load_data(partition_id: int, num_partitions: int):
+def load_dataset_repo(dataset: str = "MNIST"):
+    if dataset == "MNIST":
+        return "uoft-cs/mnist"
+    if dataset == "CIFAR10":
+        return "uoft-cs/cifar10"
+
+
+def load_data(partition_id: int, num_partitions: int, dataset: str):
     """Load partition CIFAR10 data."""
     # Only initialize `FederatedDataset` once
     global fds
     if fds is None:
         partitioner = IidPartitioner(num_partitions=num_partitions)
         fds = FederatedDataset(
-            dataset="uoft-cs/cifar10",
+            dataset=load_dataset_repo(dataset),
             partitioners={"train": partitioner},
         )
     partition = fds.load_partition(partition_id)
     # Divide data on each node: 80% train, 20% test
     partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
-    pytorch_transforms = Compose(
-        [ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-    )
+
+    class DynamicNormalize:
+        def __init__(self, mean=0.5, std=0.5):
+            self.mean = mean
+            self.std = std
+
+        def __call__(self, tensor):
+            c = tensor.size(0)
+            mean = [self.mean] * c
+            std = [self.std] * c
+            return Normalize(tensor, mean, std)
+
+    pytorch_transforms = Compose([
+        ToTensor(),
+        DynamicNormalize(0.5, 0.5)
+    ])
 
     def apply_transforms(batch):
         """Apply transforms to the partition from FederatedDataset."""
