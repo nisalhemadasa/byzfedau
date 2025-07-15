@@ -24,6 +24,7 @@ class BackdoorCrossStamp:
             self.c, self.h, self.w = image_shape
 
     def stamp(self, img: torch.Tensor) -> torch.Tensor:
+        """Expects a single img: (c, w, h)"""
         out = img.clone()
         if len(out.size()) == 2:
             out = out.unsqueeze(0)
@@ -48,24 +49,11 @@ class BackdoorCrossStamp:
         out[:, y_start:y_end, v_x_start:v_x_end] = self.base_color
 
         return out
-
-
-def evaluate_efficacy(
-    model: torch.nn.Module,
-    backdoor_dataloader: torch.utils.data.DataLoader ,
-) -> float:
-    """Evaluates the efficacy of a backdoor attack on the model.
-    Data should be a backdoored dataset. Labels should be the attacker target.
-    """
-    model.eval()
-    with torch.no_grad():
-        backdoor_right, backdoor_total = 0, 0
-        
-        for data, target in backdoor_dataloader:
-            output = model(data)
-            pred = output.argmax(dim=1, keepdim=True)
-            backdoor_right += pred.eq(target.view_as(pred)).sum().item()
-            backdoor_total += len(target)
-        
-    efficacy = backdoor_right / backdoor_total if backdoor_total > 0 else 0
-    return efficacy
+    
+    def stamp_batch(self, imgs: torch.Tensor) -> torch.Tensor:
+        """Expects a batch of imgs: (b, c, w, h).
+        If there is enough time should be vetorized.
+        """
+        return torch.stack([
+            self.stamp(img) for img in imgs
+        ])
