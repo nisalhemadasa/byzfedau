@@ -90,7 +90,8 @@ def train(net, trainloader, epochs, attack_info, attack_activated, client_type, 
             if attack_activated and client_type == "Malicious":
                 match attack_info["byz-attack-type"]:
                     case "Backdoor":
-                        images = torch.stack([stamper.stamp(img) for img in images])
+                        images = stamper.stamp_batch(images)
+                        labels = torch.full_like(labels, backdoor_label)
                     case "Label Flip":
                         try:
                             labels = flip_labels(labels, 10)
@@ -131,6 +132,32 @@ def test(net, testloader, device):
     loss = loss / len(testloader)
     return loss, accuracy
 
+def test_attack_efficacy(net, testloader, device, stamp_config: dict) -> float:
+    """Evaluates the efficacy of a backdoor attack on the model.
+    Data should be a backdoored dataset. Labels should be the attacker target.
+    """
+    net.to(device)
+    net.eval()
+    correct = 0
+
+    backdoor_label = stamp_config["backdoor_label"]
+    stamper = BackdoorCrossStamp(
+        image_shape=stamp_config["image_shape"],
+        cross_size=stamp_config["cross_size"],
+        pos=stamp_config["pos"],
+        color=stamp_config["color"],
+        line_width=stamp_config["line_width"]
+    )
+    with torch.no_grad():
+        for batch in testloader:
+            images, labels = batch["img"], batch["label"]
+            attacked_images = stamper.stamp_batch(images).to(device)
+            attacked_labels = torch.full_like(labels, backdoor_label).to(device)
+            
+            outputs = net(attacked_images)
+            correct += (torch.max(outputs.data, 1)[1] == attacked_labels).sum().item()
+    efficacy = correct / len(testloader.dataset)
+    return efficacy
 
 def get_weights(net):
     return [val.cpu().numpy() for _, val in net.state_dict().items()]
