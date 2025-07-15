@@ -35,6 +35,7 @@ variance = 1.0 # Gaussian Noise variance value
 attack-activation-round = 5
 num-malicious = 4 # number of malicious users
 random-seed = 42
+dataset = "MNIST"
 
 [tool.flwr.federations]
 default = "local-simulation"

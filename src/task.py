@@ -9,28 +9,34 @@ from flwr_datasets.partitioner import IidPartitioner
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor
 
-from src.attacks import flip_sign, add_gaussian_noise, flip_labels
-from src.utils import BackdoorCrossStamp
+from src.attacks import flip_sign, add_gaussian_noise, flip_labels, BackdoorCrossStamp
 from src.nn import MNISTNet, CifarNet
 
 def get_nn(dataset: str = "MINST") -> torch.nn.Module:
     if dataset == "MNIST":
         return MNISTNet()
-    if dataset == "CIFAR":
+    if dataset == "CIFAR10":
         return CifarNet()
     return None
 
 fds = None  # Cache FederatedDataset
 
 
-def load_data(partition_id: int, num_partitions: int):
+def load_dataset_repo(dataset: str = "MNIST"):
+    if dataset == "MNIST":
+        return "uoft-cs/mnist"
+    if dataset == "CIFAR10":
+        return "uoft-cs/cifar10"
+
+
+def load_data(partition_id: int, num_partitions: int, dataset: str):
     """Load partition CIFAR10 data."""
     # Only initialize `FederatedDataset` once
     global fds
     if fds is None:
         partitioner = IidPartitioner(num_partitions=num_partitions)
         fds = FederatedDataset(
-            dataset="uoft-cs/cifar10",
+            dataset=load_dataset_repo(dataset),
             partitioners={"train": partitioner},
         )
     partition = fds.load_partition(partition_id)

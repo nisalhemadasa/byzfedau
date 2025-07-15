@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image, make_grid
 
-from src.utils import BackdoorCrossStamp
+from src.attacks import BackdoorCrossStamp
 
 
 def mnist_test():

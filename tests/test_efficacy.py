@@ -3,7 +3,7 @@ from torch import nn
 from torch.utils.data import TensorDataset, DataLoader
 import torch.nn.functional as F
 
-from src.utils import evaluate_efficacy
+from src.attacks import evaluate_efficacy
 
 
 class DummyModel(nn.Module):
