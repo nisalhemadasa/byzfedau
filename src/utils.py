@@ -24,6 +24,7 @@ class BackdoorCrossStamp:
             self.c, self.h, self.w = image_shape
 
     def stamp(self, img: torch.Tensor) -> torch.Tensor:
+        """Expects a single img: (c, w, h)"""
         out = img.clone()
         if len(out.size()) == 2:
             out = out.unsqueeze(0)
@@ -48,6 +49,15 @@ class BackdoorCrossStamp:
         out[:, y_start:y_end, v_x_start:v_x_end] = self.base_color
 
         return out
+    
+    def stamp_batch(self, imgs: torch.Tensor) -> torch.Tensor:
+        """Expects a batch of imgs: (b, c, w, h).
+        If there is enough time should be vetorized.
+        """
+        return torch.stack([
+            self.stamp(img for img in imgs)
+        ])
+        
 
 
 def evaluate_efficacy(

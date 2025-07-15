@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor
 
 from src.attacks import flip_sign, add_gaussian_noise, flip_labels
-
+from src.utils import BackdoorCrossStamp
 
 class Net(nn.Module):
     """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz')"""
@@ -65,13 +65,23 @@ def load_data(partition_id: int, num_partitions: int):
     return trainloader, testloader
 
 
-def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device):
+def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device, stamp_config: dict = None):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
     criterion = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
     net.train()
     running_loss = 0.0
+    
+    if stamp_config is not None:
+        stamper = BackdoorCrossStamp(
+            image_shape=stamp_config["image_shape"],
+            cross_size=stamp_config["cross_size"],
+            pos=stamp_config["pos"],
+            color=stamp_config["color"],
+            line_width=stamp_config["line_width"]
+        )
+        backdoor_label = stamp_config["backdoor_label"]
     for _ in range(epochs):
         for batch in trainloader:
             images = batch["img"]
@@ -79,6 +89,8 @@ def train(net, trainloader, epochs, attack_info, attack_activated, client_type, 
 
             if attack_activated and client_type == "Malicious":
                 match attack_info["byz-attack-type"]:
+                    case "Backdoor":
+                        images = torch.stack([stamper.stamp(img) for img in images])
                     case "Label Flip":
                         try:
                             labels = flip_labels(labels, 10)
