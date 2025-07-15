@@ -42,9 +42,22 @@ def load_data(partition_id: int, num_partitions: int, dataset: str):
     partition = fds.load_partition(partition_id)
     # Divide data on each node: 80% train, 20% test
     partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
-    pytorch_transforms = Compose(
-        [ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-    )
+
+    class DynamicNormalize:
+        def __init__(self, mean=0.5, std=0.5):
+            self.mean = mean
+            self.std = std
+
+        def __call__(self, tensor):
+            c = tensor.size(0)
+            mean = [self.mean] * c
+            std = [self.std] * c
+            return Normalize(tensor, mean, std)
+
+    pytorch_transforms = Compose([
+        ToTensor(),
+        DynamicNormalize(0.5, 0.5)
+    ])
 
     def apply_transforms(batch):
         """Apply transforms to the partition from FederatedDataset."""
