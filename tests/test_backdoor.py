@@ -65,3 +65,4 @@ if __name__ == "__main__":
     mnist_test()
     batch_mnist_test()
     cifar10_test()
+    print("all test passed")
