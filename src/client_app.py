@@ -10,13 +10,14 @@ from src.task import Net, get_weights, load_data, set_weights, test, train
 
 # Define Flower Client and client_fn
 class FlowerClient(NumPyClient):
-    def __init__(self, net, trainloader, valloader, local_epochs, attack_info, client_type):
+    def __init__(self, net, trainloader, valloader, local_epochs, attack_info, client_type, partition_id):
         self.net = net
         self.trainloader = trainloader
         self.valloader = valloader
         self.local_epochs = local_epochs
         self.attack_info = attack_info
         self.client_type = client_type
+        self.partition_id = partition_id
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.net.to(self.device)
 
@@ -35,7 +36,7 @@ class FlowerClient(NumPyClient):
         return (
             get_weights(self.net),
             len(self.trainloader.dataset),
-            {"train_loss": train_loss},
+            {"train_loss": train_loss, "ID": self.partition_id},
         )
 
     def evaluate(self, parameters, config):
@@ -68,7 +69,15 @@ def client_fn(context: Context):
         client_type = "Honest"
 
     # Return Client instance
-    return FlowerClient(net, trainloader, valloader, local_epochs, attack_info, client_type).to_client()
+    return FlowerClient(
+        net,
+        trainloader,
+        valloader,
+        local_epochs,
+        attack_info,
+        client_type,
+        partition_id
+    ).to_client()
 
 
 # Flower ClientApp

@@ -37,10 +37,16 @@ class CustomFedAvg(FedAvg):
             return None, {}
 
         # Store the gradients of all successfully received clients.
-        self.gradients = []
         for client_proxy, fit_res in results:
+            client_id = fit_res.metrics["ID"]
             tensor_list = [torch.from_numpy(param) for param in parameters_to_ndarrays(fit_res.parameters)]
-            self.gradients.append(tensor_list)
+            if client_id not in self.gradients.keys():
+                self.gradients[client_id] = [tensor_list]
+            else:
+                self.gradients[client_id].append(tensor_list)
+                print(f"Length : {len(self.gradients[client_id])}")
+
+
 
         if self.inplace:
             # Does in-place weighted average of results
