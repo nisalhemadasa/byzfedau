@@ -32,6 +32,7 @@ fraction-fit = 1
 local-epochs = 5
 strategy-name = "Custom-FedAvg"
 byz-attack-type = "BackDoor" # ["Sign Flip", "Label Flip", "Gaussian Noise", "BackDoor"]
+backdoor_label = 3 # All the backdoor attacks are going to be related with 3 label
 mu = 1.0 # Gaussian Noise mean value
 variance = 1.0 # Gaussian Noise variance value
 attack-activation-round = 5

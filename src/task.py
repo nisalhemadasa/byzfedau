@@ -72,7 +72,7 @@ def load_data(partition_id: int, num_partitions: int, dataset: str):
     return trainloader, testloader
 
 
-def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device, stamp_config: dict = None):
+def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
     criterion = torch.nn.CrossEntropyLoss().to(device)
@@ -80,15 +80,10 @@ def train(net, trainloader, epochs, attack_info, attack_activated, client_type, 
     net.train()
     running_loss = 0.0
     
-    if stamp_config is not None:
-        stamper = BackdoorCrossStamp(
-            image_shape=stamp_config["image_shape"],
-            cross_size=stamp_config["cross_size"],
-            pos=stamp_config["pos"],
-            color=stamp_config["color"],
-            line_width=stamp_config["line_width"]
-        )
-        backdoor_label = stamp_config["backdoor_label"]
+    if attack_activated and client_type == "Malicious":
+        stamper = BackdoorCrossStamp()
+        backdoor_label = attack_info["backdoor_label"]
+        
     for _ in range(epochs):
         for batch in trainloader:
             images = batch["img"]
@@ -140,7 +135,7 @@ def test(net, testloader, device):
     return loss, accuracy
 
 
-def test_attack_efficacy(net, testloader, device, stamp_config: dict) -> float:
+def test_attack_efficacy(net, testloader, device, attack_info: dict) -> float:
     """
     Evaluates the efficacy of a backdoor attack on the model.
     Ignores samples that already have the backdoor label.
@@ -149,7 +144,7 @@ def test_attack_efficacy(net, testloader, device, stamp_config: dict) -> float:
     net.eval()
     total, correct = 0, 0
 
-    backdoor_label = stamp_config["backdoor_label"]
+    backdoor_label = attack_info["backdoor_label"]
     stamper = BackdoorCrossStamp()
     
     with torch.no_grad():

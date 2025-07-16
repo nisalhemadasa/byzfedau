@@ -58,6 +58,8 @@ def client_fn(context: Context):
     if attack_info["byz-attack-type"] == "Gaussian Noise":
         attack_info["mu"] = context.run_config["mu"]
         attack_info["variance"] = context.run_config["variance"]
+    if attack_info["byz-attack-type"] == "BackDoor":
+        attack_info["backdoor_label"] = context.run_config["backdoor_label"]
 
     random.seed(context.run_config["random-seed"])
     num_malicious = context.run_config["num-malicious"]
