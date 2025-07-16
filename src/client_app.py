@@ -5,7 +5,7 @@ import torch
 
 from flwr.client import ClientApp, NumPyClient
 from flwr.common import Context
-from src.task import Net, get_weights, load_data, set_weights, test, train
+from src.task import get_nn, get_weights, load_data, set_weights, test, train
 
 
 # Define Flower Client and client_fn
@@ -47,10 +47,11 @@ class FlowerClient(NumPyClient):
 
 def client_fn(context: Context):
     # Load model and data
-    net = Net()
+    dataset = context.run_config["dataset"]
+    net = get_nn(dataset)
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
-    trainloader, valloader = load_data(partition_id, num_partitions)
+    trainloader, valloader = load_data(partition_id, num_partitions, dataset)
     local_epochs = context.run_config["local-epochs"]
 
     attack_info = {"byz-attack-type": context.run_config["byz-attack-type"]}

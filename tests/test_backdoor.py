@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image, make_grid
 
-from src.utils import BackdoorCrossStamp
+from src.attacks import BackdoorCrossStamp
 
 
 def mnist_test():
@@ -19,7 +19,7 @@ def mnist_test():
         color=(1.0,),
         line_width=2,
     )
-
+    stamp_mnist = BackdoorCrossStamp()
     stamped_img_mnist = stamp_mnist.stamp(img_mnist)
     save_image(stamped_img_mnist, "./imgs/stamped_mnist.png")
 
@@ -38,6 +38,7 @@ def batch_mnist_test():
         line_width=2,
     )
 
+    stamp_mnist = BackdoorCrossStamp()
     stamped_imgs = stamp_mnist.stamp_batch(imgs)
 
     grid = make_grid(stamped_imgs, nrow=4)
@@ -57,6 +58,7 @@ def cifar10_test():
         line_width=2,
     )
 
+    stamp_cifar10 = BackdoorCrossStamp()
     stamped_img_cifar10 = stamp_cifar10.stamp(img_cifar10)
     save_image(stamped_img_cifar10, "./imgs/stamped_cifar10.png")
 
@@ -65,3 +67,4 @@ if __name__ == "__main__":
     mnist_test()
     batch_mnist_test()
     cifar10_test()
+    print("all test passed")
