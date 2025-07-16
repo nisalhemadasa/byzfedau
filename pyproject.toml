@@ -13,6 +13,7 @@ dependencies = [
     "flwr-datasets[vision]>=0.5.0",
     "torch==2.5.1",
     "torchvision==0.20.1",
+    "wandb (>=0.21.0,<0.22.0)",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -28,7 +29,7 @@ clientapp = "src.client_app:app"
 [tool.flwr.app.config]
 num-server-rounds = 10
 fraction-fit = 1
-local-epochs = 1
+local-epochs = 5
 strategy-name = "Custom-FedAvg"
 byz-attack-type = "BackDoor" # ["Sign Flip", "Label Flip", "Gaussian Noise", "BackDoor"]
 mu = 1.0 # Gaussian Noise mean value
@@ -36,6 +37,7 @@ variance = 1.0 # Gaussian Noise variance value
 attack-activation-round = 5
 num-malicious = 4 # number of malicious users
 random-seed = 42
+use-wandb = true
 [tool.flwr.federations]
 default = "local-simulation"
 

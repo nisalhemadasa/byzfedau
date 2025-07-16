@@ -1,6 +1,8 @@
 """byzAttack: A Flower / PyTorch app."""
-
+import shutil
 from collections import OrderedDict
+from datetime import datetime
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -19,10 +21,14 @@ class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(3, 6, 5)
+        self.bn1 = nn.BatchNorm2d(6)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
+        self.bn2 = nn.BatchNorm2d(16)
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.bn3 = nn.BatchNorm1d(120)
         self.fc2 = nn.Linear(120, 84)
+        self.bn4 = nn.BatchNorm1d(84)
         self.fc3 = nn.Linear(84, 10)
 
     def forward(self, x):
@@ -60,8 +66,8 @@ def load_data(partition_id: int, num_partitions: int):
         return batch
 
     partition_train_test = partition_train_test.with_transform(apply_transforms)
-    trainloader = DataLoader(partition_train_test["train"], batch_size=32, shuffle=True)
-    testloader = DataLoader(partition_train_test["test"], batch_size=32)
+    trainloader = DataLoader(partition_train_test["train"], batch_size=64, shuffle=True)
+    testloader = DataLoader(partition_train_test["test"], batch_size=64)
     return trainloader, testloader
 
 
@@ -167,3 +173,22 @@ def set_weights(net, parameters):
     params_dict = zip(net.state_dict().keys(), parameters)
     state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
     net.load_state_dict(state_dict, strict=True)
+
+def create_run_dir() -> tuple[Path, str]:
+    """Create a directory where to save results from this run."""
+    # Create output directory given current timestamp
+    current_time = datetime.now()
+    run_dir = current_time.strftime("%Y-%m-%d/%H-%M-%S")
+    # Save path is based on the current directory
+    save_path = Path.cwd() / f"outputs/{run_dir}"
+    save_path.mkdir(parents=True, exist_ok=False)
+    # shutil.copy(settings.config_path, save_path)
+
+    return save_path, run_dir
+
+
+EVAL_TRANSFORMS = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+def apply_eval_transforms(batch):
+    """Apply transforms to the partition from FederatedDataset."""
+    batch["img"] = [EVAL_TRANSFORMS(img) for img in batch["img"]]
+    return batch
