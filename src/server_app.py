@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import torch
 
 from src.custom_strategy import CustomFedAvg
-from src.task import Net, get_weights, set_weights, test, apply_eval_transforms
+from src.task import Net, get_nn, get_weights, set_weights, test, apply_eval_transforms
 
 
 class OnFitConfigScheduler:

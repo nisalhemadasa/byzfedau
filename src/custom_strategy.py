@@ -21,8 +21,22 @@ from src.task import set_weights, create_run_dir
 PROJECT_NAME = "FLTA-Project"
 
 
+
 class CustomFedAvg(FedAvg):
     """A class that behaves like FedAvg but has extra functionality."""
+    def configure_fit(self, server_round, parameters, client_manager):
+        # Keep a copy of the global weights: we’ll subtract them later
+        if parameters is not None:
+            self._base_params = [
+                arr.copy() for arr in parameters_to_ndarrays(parameters)
+            ]
+        # keep Flower’s default behaviour
+        return super().configure_fit(server_round, parameters, client_manager)
+
+    @staticmethod
+    def _as_str(x) -> str:
+        """Return a JSON/W&B‑safe string version of client identifiers."""
+        return str(x)
 
     def __init__(self, model_architecture, attack_type=None, use_wandb=False, **kwargs):
         super().__init__(**kwargs)
@@ -43,6 +57,8 @@ class CustomFedAvg(FedAvg):
         self.initial_loss = None
         # A dictionary to store results as they come
         self.results = {}
+        self.layer_names = list(model_architecture.state_dict().keys())
+        self._base_params: list[np.ndarray] | None = None
 
     def _init_wandb_project(self):
         if self.attack_type is not None:
@@ -146,19 +162,35 @@ class CustomFedAvg(FedAvg):
         if not self.accept_failures and failures:
             return None, {}
 
+        round_grads: dict[str, dict[str, list]] = {}  # {client_id: {layer: list}}
         # Store the gradients of all successfully received clients.
         for client_proxy, fit_res in results:
-            client_id = fit_res.metrics["ID"]
-            tensor_list = [param.tolist() for param in parameters_to_ndarrays(fit_res.parameters)]
-            if client_id not in self.gradients.keys():
-                self.gradients[client_id] = [tensor_list]
-            else:
-                self.gradients[client_id].append(tensor_list)
-        self._store_results_and_log(
-            server_round=server_round,
-            tag="gradients",
-            results_dict={"grad_dict": self.gradients},
+            client_id = self._as_str(fit_res.metrics["ID"])
+            ndarrays = parameters_to_ndarrays(fit_res.parameters)
+            named = {
+                layer: arr.tolist()  # JSON serialisable
+                for layer, arr in zip(self.layer_names, ndarrays)
+            }
+            for layer, w_local, w_base in zip(self.layer_names, ndarrays, self._base_params):
+                delta = w_local - w_base  # numpy broadcasting
+                named[layer] = delta.tolist()  # JSON‑serialisable
+            round_grads[client_id] = named
+
+            # if client_id not in self.gradients.keys():
+            #     self.gradients[client_id] = [tensor_list]
+            # else:
+            #     self.gradients[client_id].append(tensor_list)
+
+        self._store_results(
+            tag="client_grads",
+            results_dict={"round": server_round, **round_grads},
         )
+
+        # self._store_results_and_log(
+        #     server_round=server_round,
+        #     tag="client_weights",
+        #     results_dict=round_grads,  # <-- directly the whole mapping
+        # )
 
         if self.inplace:
             # Does in-place weighted average of results
