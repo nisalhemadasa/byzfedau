@@ -1,44 +1,24 @@
 import torch
 
 
-def flip_labels(labels: torch.tensor, total_number_classes: int) -> torch.tensor:
-    flipped_tensor = total_number_classes - 1 - labels
-    return flipped_tensor
-
-
-def add_gaussian_noise(parameters, mu, variance):
-    """
-    Adds Gaussian noise with user-defined mean and standard deviation to model parameters
-    :param parameters: Model parameters
-    """
-    for param in parameters:
-        if param.grad is not None:
-            noise = torch.randn_like(param.grad) * variance + mu
-            param.grad += noise
-
-
-def flip_sign(parameters):
-    """
-    Flips sign of gradient for model parameters.
-    :param parameters: Model parameters
-    """
-    for param in parameters:
-        if param.grad is not None:
-            param.grad *= -1  # Flip the sign of the gradients
-
-
 class BackdoorCrossStamp:
     def __init__(
         self,
-        image_shape: tuple,
-        cross_size: int,
-        pos: tuple,
-        color: tuple,
-        line_width: int,
+        image_shape: tuple = None,
+        cross_size: int = 8,
+        pos: tuple = None,
+        color: tuple = None,
+        line_width: int = 2,
     ):
+        if image_shape is None:
+            image_shape = (3, 32, 32)
         self.image_shape = image_shape
         self.cross_size = cross_size
+        if pos is None:
+            pos = (2, 2)
         self.pos = pos
+        if color is None:
+            color = (1,)
         self.base_color = torch.tensor(color).view(-1, 1, 1)
         self.line_width = line_width
 
@@ -75,11 +55,35 @@ class BackdoorCrossStamp:
         out[:, y_start:y_end, v_x_start:v_x_end] = self.base_color
 
         return out
-    
+
     def stamp_batch(self, imgs: torch.Tensor) -> torch.Tensor:
         """Expects a batch of imgs: (b, c, w, h).
         If there is enough time should be vetorized.
         """
-        return torch.stack([
-            self.stamp(img) for img in imgs
-        ])
+        return torch.stack([self.stamp(img) for img in imgs])
+
+
+def flip_labels(labels: torch.tensor, total_number_classes: int) -> torch.tensor:
+    flipped_tensor = total_number_classes - 1 - labels
+    return flipped_tensor
+
+
+def add_gaussian_noise(parameters, mu, variance):
+    """
+    Adds Gaussian noise with user-defined mean and standard deviation to model parameters
+    :param parameters: Model parameters
+    """
+    for param in parameters:
+        if param.grad is not None:
+            noise = torch.randn_like(param.grad) * variance + mu
+            param.grad += noise
+
+
+def flip_sign(parameters):
+    """
+    Flips sign of gradient for model parameters.
+    :param parameters: Model parameters
+    """
+    for param in parameters:
+        if param.grad is not None:
+            param.grad *= -1  # Flip the sign of the gradients
