@@ -137,32 +137,43 @@ def test(net, testloader, device):
     loss = loss / len(testloader)
     return loss, accuracy
 
+
 def test_attack_efficacy(net, testloader, device, stamp_config: dict) -> float:
-    """Evaluates the efficacy of a backdoor attack on the model.
-    Data should be a backdoored dataset. Labels should be the attacker target.
+    """
+    Evaluates the efficacy of a backdoor attack on the model.
+    Ignores samples that already have the backdoor label.
     """
     net.to(device)
     net.eval()
-    correct = 0
+    total, correct = 0, 0
 
     backdoor_label = stamp_config["backdoor_label"]
-    stamper = BackdoorCrossStamp(
-        image_shape=stamp_config["image_shape"],
-        cross_size=stamp_config["cross_size"],
-        pos=stamp_config["pos"],
-        color=stamp_config["color"],
-        line_width=stamp_config["line_width"]
-    )
+    stamper = BackdoorCrossStamp()
+    
     with torch.no_grad():
         for batch in testloader:
             images, labels = batch["img"], batch["label"]
-            attacked_images = stamper.stamp_batch(images).to(device)
-            attacked_labels = torch.full_like(labels, backdoor_label).to(device)
+
+            # Filter out samples where the original label is already the backdoor label
+            mask = labels != backdoor_label
+            if mask.sum() == 0:
+                continue
+
+            filtered_images = images[mask]
+            filtered_labels = labels[mask]
+
+            attacked_images = stamper.stamp_batch(filtered_images).to(device)
+            attacked_labels = torch.full_like(filtered_labels, backdoor_label).to(device)
             
             outputs = net(attacked_images)
-            correct += (torch.max(outputs.data, 1)[1] == attacked_labels).sum().item()
-    efficacy = correct / len(testloader.dataset)
+            predictions = torch.max(outputs.data, 1)[1]
+
+            correct += (predictions == attacked_labels).sum().item()
+            total += attacked_labels.size(0)
+
+    efficacy = correct / total if total > 0 else 0.0
     return efficacy
+
 
 def get_weights(net):
     return [val.cpu().numpy() for _, val in net.state_dict().items()]
