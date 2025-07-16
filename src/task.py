@@ -71,23 +71,14 @@ def load_data(partition_id: int, num_partitions: int):
     return trainloader, testloader
 
 
-def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device, stamp_config: dict = None):
+def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device, backdoor_label = 3):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
     criterion = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
     net.train()
     running_loss = 0.0
-    
-    if stamp_config is not None:
-        stamper = BackdoorCrossStamp(
-            image_shape=stamp_config["image_shape"],
-            cross_size=stamp_config["cross_size"],
-            pos=stamp_config["pos"],
-            color=stamp_config["color"],
-            line_width=stamp_config["line_width"]
-        )
-        backdoor_label = stamp_config["backdoor_label"]
+
     for _ in range(epochs):
         for batch in trainloader:
             images = batch["img"]
@@ -96,6 +87,7 @@ def train(net, trainloader, epochs, attack_info, attack_activated, client_type, 
             if attack_activated and client_type == "Malicious":
                 match attack_info["byz-attack-type"]:
                     case "Backdoor":
+                        stamper = BackdoorCrossStamp()
                         images = stamper.stamp_batch(images)
                         labels = torch.full_like(labels, backdoor_label)
                     case "Label Flip":
@@ -138,7 +130,7 @@ def test(net, testloader, device):
     loss = loss / len(testloader)
     return loss, accuracy
 
-def test_attack_efficacy(net, testloader, device, stamp_config: dict) -> float:
+def test_attack_efficacy(net, testloader, device, backdoor_label = 3) -> float:
     """Evaluates the efficacy of a backdoor attack on the model.
     Data should be a backdoored dataset. Labels should be the attacker target.
     """
@@ -146,14 +138,7 @@ def test_attack_efficacy(net, testloader, device, stamp_config: dict) -> float:
     net.eval()
     correct = 0
 
-    backdoor_label = stamp_config["backdoor_label"]
-    stamper = BackdoorCrossStamp(
-        image_shape=stamp_config["image_shape"],
-        cross_size=stamp_config["cross_size"],
-        pos=stamp_config["pos"],
-        color=stamp_config["color"],
-        line_width=stamp_config["line_width"]
-    )
+    stamper = BackdoorCrossStamp()
     with torch.no_grad():
         for batch in testloader:
             images, labels = batch["img"], batch["label"]
