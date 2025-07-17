@@ -77,7 +77,7 @@ def load_data(partition_id: int, num_partitions: int):
     return trainloader, testloader
 
 
-def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device, backdoor_label = 3):
+def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device, backdoor_label = 3, attack_weight = 2.):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
     criterion = torch.nn.CrossEntropyLoss().to(device)
@@ -104,6 +104,8 @@ def train(net, trainloader, epochs, attack_info, attack_activated, client_type, 
 
             optimizer.zero_grad()
             loss = criterion(net(images.to(device)), labels.to(device))
+            if attack_activated and client_type == "Malicious":
+                loss *= attack_weight
             loss.backward()
 
             if attack_activated and client_type == "Malicious":
