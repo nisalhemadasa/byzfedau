@@ -5,7 +5,7 @@ class BackdoorCrossStamp:
     def __init__(
         self,
         image_shape: tuple = None,
-        cross_size: int = 8,
+        cross_size: int = 14,
         pos: tuple = None,
         color: tuple = None,
         line_width: int = 2,
