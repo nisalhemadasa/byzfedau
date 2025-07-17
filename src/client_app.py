@@ -60,7 +60,7 @@ def client_fn(context: Context):
 
     random.seed(context.run_config["random-seed"])
     num_malicious = context.run_config["num-malicious"]
-    malicious_ids = random.sample(range(num_partitions), num_malicious)
+    malicious_ids = range(num_partitions)
 
     # Set client type
     if partition_id in malicious_ids:
