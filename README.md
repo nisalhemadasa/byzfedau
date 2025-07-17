@@ -3,6 +3,8 @@
 ## Install dependencies and project
 
 ```bash
+python -m venv venv
+source venv/bin/activate
 pip install -e .
 poetry install
 ```

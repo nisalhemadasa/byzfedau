@@ -20,7 +20,7 @@ from src.utils import BackdoorCrossStamp
 
 # class Net(nn.Module):
 #     """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz')"""
-#
+
 #     def __init__(self):
 #         super(Net, self).__init__()
 #         self.conv1 = nn.Conv2d(3, 6, 5)
@@ -33,7 +33,7 @@ from src.utils import BackdoorCrossStamp
 #         self.fc2 = nn.Linear(120, 84)
 #         self.bn4 = nn.BatchNorm1d(84)
 #         self.fc3 = nn.Linear(84, 10)
-#
+
 #     def forward(self, x):
 #         x = self.pool(F.relu(self.conv1(x)))
 #         x = self.pool(F.relu(self.conv2(x)))
@@ -43,7 +43,9 @@ from src.utils import BackdoorCrossStamp
 #         return self.fc3(x)
 
 def Net():
-    return models.resnet18(pretrained=False)
+    model = models.shufflenet_v2_x1_0(pretrained=True)
+    model.fc = nn.Linear(model.fc.in_features, 10)
+    return model
 
 
 fds = None  # Cache FederatedDataset
@@ -77,11 +79,11 @@ def load_data(partition_id: int, num_partitions: int):
     return trainloader, testloader
 
 
-def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device, backdoor_label = 3):
+def train(net, trainloader, epochs, attack_info, attack_activated, client_type, device, backdoor_label = 3, attack_weight = 2.5):
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
     criterion = torch.nn.CrossEntropyLoss().to(device)
-    optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
     net.train()
     running_loss = 0.0
 
@@ -104,6 +106,8 @@ def train(net, trainloader, epochs, attack_info, attack_activated, client_type, 
 
             optimizer.zero_grad()
             loss = criterion(net(images.to(device)), labels.to(device))
+            if attack_activated and client_type == "Malicious":
+                loss *= attack_weight
             loss.backward()
 
             if attack_activated and client_type == "Malicious":
@@ -142,19 +146,34 @@ def test_attack_efficacy(net, testloader, device, backdoor_label = 3) -> float:
     """
     net.to(device)
     net.eval()
-    correct = 0
+    correct, total = 0, 0
 
     stamper = BackdoorCrossStamp()
     with torch.no_grad():
         for batch in testloader:
             images, labels = batch["img"], batch["label"]
-            attacked_images = stamper.stamp_batch(images).to(device)
-            attacked_labels = torch.full_like(labels, backdoor_label).to(device)
+
+            # Filter out samples where the original label is already the backdoor label
+            mask = labels != backdoor_label
+            if mask.sum() == 0:
+                continue
+
+            filtered_images = images[mask]
+            filtered_labels = labels[mask]
+
+            attacked_images = stamper.stamp_batch(filtered_images).to(device)
+            attacked_labels = torch.full_like(filtered_labels, backdoor_label).to(device)
             
             outputs = net(attacked_images)
-            correct += (torch.max(outputs.data, 1)[1] == attacked_labels).sum().item()
-    efficacy = correct / len(testloader.dataset)
+            predictions = torch.max(outputs.data, 1)[1]
+
+            correct += (predictions == attacked_labels).sum().item()
+            total += attacked_labels.size(0)
+
+    efficacy = correct / total if total > 0 else 0.0
     return efficacy
+
+
 
 def get_weights(net):
     return [val.cpu().numpy() for _, val in net.state_dict().items()]
