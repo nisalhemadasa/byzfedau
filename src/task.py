@@ -81,7 +81,7 @@ def train(net, trainloader, epochs, attack_info, attack_activated, client_type, 
     """Train the model on the training set."""
     net.to(device)  # move model to GPU if available
     criterion = torch.nn.CrossEntropyLoss().to(device)
-    optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
     net.train()
     running_loss = 0.0
 
