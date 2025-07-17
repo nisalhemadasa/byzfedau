@@ -42,7 +42,7 @@ def gen_evaluate_fn(
 
         # asr
         asr = test_attack_efficacy(net, testloader, device, )
-        return loss, {"centralized_accuracy": accuracy, }
+        return loss, {"centralized_accuracy": accuracy, "attack_success_rate": asr}
 
     return evaluate
 
