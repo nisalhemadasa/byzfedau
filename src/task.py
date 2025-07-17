@@ -94,7 +94,7 @@ def train(net, trainloader, epochs, attack_info, attack_activated, client_type, 
 
             if attack_activated and client_type == "Malicious":
                 match attack_info["byz-attack-type"]:
-                    case "Backdoor":
+                    case "BackDoor":
                         stamper = BackdoorCrossStamp()
                         images = stamper.stamp_batch(images)
                         labels = torch.full_like(labels, backdoor_label)
