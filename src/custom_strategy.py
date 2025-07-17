@@ -1,6 +1,7 @@
 import json
 from logging import INFO, WARNING
 from typing import Optional, Union
+from pathlib import Path
 
 import torch
 from flwr.common import (
@@ -15,6 +16,7 @@ from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
 from flwr.server.strategy.aggregate import aggregate_inplace, aggregate
 import wandb
+import gzip
 
 from src.task import set_weights, create_run_dir
 
@@ -88,20 +90,33 @@ class CustomFedAvg(FedAvg):
                 name=f"{str(self.run_dir)}-No attack",
             )
 
-    def _store_results(self, tag: str, results_dict) -> None:
-        """Store results in dictionary, then save as JSON."""
-        # Update results dict
-        if tag in self.results:
-            self.results[tag].append(results_dict)
-        else:
-            self.results[tag] = [results_dict]
+        # --- new helpers ---------------------------------------------------------
+    def _open_logfile(self, tag: str) -> Path:
+        """Return the path where objects of a given tag are stored.
 
-        # Save results to disk.
-        # Note we overwrite the same file with each call to this function.
-        # While this works, a more sophisticated approach is preferred
-        # in situations where the contents to be saved are larger.
-        with open(f"{self.save_path}/results.json", "w", encoding="utf-8") as fp:
-            json.dump(self.results, fp)
+        We append a single JSON object per line (jsonl).  Each tag gets its
+        own file so we don’t need to read / rewrite the whole thing ever.
+        The file is transparently gzipped to cut disk usage ~5-10×.
+        """
+        path = self.save_path / f"{tag}.jsonl.gz"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _append_jsonl(self, tag: str, obj: dict) -> None:
+        """Write one JSON line and forget the data immediately."""
+        file_path = self._open_logfile(tag)
+        # ‘at’ = append-text mode inside the gzip container
+        with gzip.open(file_path, mode="at", encoding="utf-8") as fh:
+            json.dump(obj, fh, separators=(",", ":"))  # compact
+            fh.write("\n")  # newline delimits records
+
+    # ------------------------------------------------------------------------
+
+    # --------- replace the old _store_results -------------------------------
+    def _store_results(self, tag: str, results_dict: dict) -> None:
+        """Stream result to <tag>.jsonl.gz instead of hoarding in RAM."""
+        self._append_jsonl(tag, results_dict)
+    # ------------------------------------------------------------------------
 
     def _update_best_acc(self, server_round: int, accuracy, parameters: Parameters) -> None:
         """
