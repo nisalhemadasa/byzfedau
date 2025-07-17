@@ -148,13 +148,28 @@ def test_attack_efficacy(net, testloader, device, backdoor_label = 3) -> float:
     with torch.no_grad():
         for batch in testloader:
             images, labels = batch["img"], batch["label"]
-            attacked_images = stamper.stamp_batch(images).to(device)
-            attacked_labels = torch.full_like(labels, backdoor_label).to(device)
+
+            # Filter out samples where the original label is already the backdoor label
+            mask = labels != backdoor_label
+            if mask.sum() == 0:
+                continue
+
+            filtered_images = images[mask]
+            filtered_labels = labels[mask]
+
+            attacked_images = stamper.stamp_batch(filtered_images).to(device)
+            attacked_labels = torch.full_like(filtered_labels, backdoor_label).to(device)
             
             outputs = net(attacked_images)
-            correct += (torch.max(outputs.data, 1)[1] == attacked_labels).sum().item()
-    efficacy = correct / len(testloader.dataset)
+            predictions = torch.max(outputs.data, 1)[1]
+
+            correct += (predictions == attacked_labels).sum().item()
+            total += attacked_labels.size(0)
+
+    efficacy = correct / total if total > 0 else 0.0
     return efficacy
+
+
 
 def get_weights(net):
     return [val.cpu().numpy() for _, val in net.state_dict().items()]
