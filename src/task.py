@@ -142,7 +142,7 @@ def test_attack_efficacy(net, testloader, device, backdoor_label = 3) -> float:
     """
     net.to(device)
     net.eval()
-    correct = 0
+    correct, total = 0, 0
 
     stamper = BackdoorCrossStamp()
     with torch.no_grad():
